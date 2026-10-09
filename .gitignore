@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets & real data — never commit
+.env
+*.token
+mcp-config.json
+mcd-expiry-report.html
+data.json
+
+# OS
+.DS_Store
+Thumbs.db
