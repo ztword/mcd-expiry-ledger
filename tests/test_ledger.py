@@ -73,6 +73,31 @@ class TestEngine(unittest.TestCase):
         kinds = [item["kind"] for item in plan]
         self.assertIn("历史复盘", kinds)
         self.assertIn("门店", kinds)
+
+    def test_clock_is_calibrated(self):
+        snap = self.bundle.account_snapshot
+        self.assertIn("clock_offset_seconds", snap)
+        self.assertIn("server_time", snap)
+        # demo server time equals local time, so the offset must be ~0
+        self.assertLess(abs(snap["clock_offset_seconds"]), 5.0)
+
+    def test_clock_offset_affects_days_left(self):
+        from mcd_expiry_ledger.ledger import Asset
+        soon = datetime.now() + timedelta(hours=12)
+        plain = Asset(kind="coupon", source_tool="t", title="x",
+                      expires_at=soon)
+        behind = Asset(kind="coupon", source_tool="t", title="x",
+                       expires_at=soon, clock_offset=-3 * 3600)
+        # a clock 3h behind must report MORE days left than a correct clock
+        self.assertGreater(behind.days_left, plain.days_left)
+
+    def test_redeemed_history_recorded(self):
+        snap = self.bundle.account_snapshot
+        self.assertTrue(snap.get("redeemed_recent"))
+        plan = self.engine.build_plan(self.bundle)
+        self.assertTrue(any(i["kind"] == "历史复盘" and "已兑" in i["asset"]
+                            for i in plan))
+
     def test_plan_has_claimable_first(self):
         plan = self.engine.build_plan(self.bundle)
         self.assertIn("待领券", plan[0]["asset"])
