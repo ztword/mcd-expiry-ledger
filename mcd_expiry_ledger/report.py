@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 
 from .ledger import Asset, ScanResult
 
-__all__ = ["render_html"]
+__all__ = ["render_html", "render_markdown"]
 
 _PALETTE = {
     "dead":     "#9ca3af",
@@ -262,6 +262,68 @@ def render_html(result: ScanResult,
         '</div></section>' % _plan_table(plan)
     )
 
+    # historical orders
+    orders = result.orders
+    if orders:
+        slot_rows = ""
+        for slot, count in sorted(
+                (result.account_snapshot.get("orders_slots") or {}).items(),
+                key=lambda kv: -kv[1]):
+            share = round(count / len(orders) * 100)
+            slot_rows += (
+                '<div class="kv"><span>%s</span><b>%d 单 · %d%%</b></div>'
+                % (_e(slot), count, share))
+        top_meals = "".join(
+            '<span class="pill" style="background:#f3f4f6;color:#374151;'
+            'margin:3px 4px 3px 0">%s × %d</span>' % (_e(name), cnt)
+            for name, cnt in (result.account_snapshot.get("orders_top_meals") or [])
+        )
+        spend_rows = "".join(
+            '<tr><td nowrap>%s</td><td>%s</td><td nowrap>¥%.2f</td></tr>'
+            % (_e(o.get("date", "")[:16]), _e(o.get("store", "")), o.get("amount", 0))
+            for o in orders[-6:][::-1]
+        )
+        parts.append(
+            '<section><h2>历史复盘</h2>'
+            '<p class="hint">来自 <code>order-list</code> 的近 %d 单，'
+            '回答一个问题：你的券到底该在什么时候用。</p>'
+            '<div class="grid2">'
+            '<div class="card">'
+            '<div class="kv"><span>累计消费</span><b>¥%.2f</b></div>'
+            '<div class="kv"><span>订单数</span><b>%d</b></div>'
+            '<div class="kv"><span>平均客单价</span><b>¥%.2f</b></div>'
+            '<div class="kv"><span>最常点的餐品</span><b></b></div>%s'
+            '</div>'
+            '<div class="card"><div class="kv"><span>时段分布</span><b></b></div>%s'
+            '<div class="legend">券只在它的时段有效 —— 时段对上了才算省钱</div></div>'
+            '</div>'
+            '<div class="card" style="margin-top:16px"><table><thead><tr>'
+            '<th>时间</th><th>门店</th><th>金额</th></tr></thead><tbody>%s</tbody>'
+            '</table></div></section>' % (
+                len(orders), result.account_snapshot.get(
+                    "orders_total_spend", 0.0), len(orders),
+                result.account_snapshot.get("orders_avg", 0.0),
+                top_meals, slot_rows, spend_rows,
+            )
+        )
+
+    # nearby stores
+    stores = result.stores
+    if stores:
+        store_rows = "".join(
+            '<tr><td><b>%s</b></td><td>%s</td><td nowrap>%s</td></tr>'
+            % (_e(s.get("name", "")), _e(s.get("address", "")),
+               _e(s.get("distance", "")))
+            for s in stores
+        )
+        parts.append(
+            '<section><h2>门店匹配</h2>'
+            '<p class="hint">门店券离开门店即失效，先确认哪家店能用掉。</p>'
+            '<div class="card"><table><thead><tr><th>门店</th><th>地址</th>'
+            '<th>距离</th></tr></thead><tbody>%s</tbody></table></div>'
+            '</section>' % store_rows
+        )
+
     # provenance
     failed = "".join(
         '<li><code>%s</code> — %s</li>' % (_e(k), _e(v))
@@ -287,3 +349,45 @@ def render_html(result: ScanResult,
         '</div></body></html>'
     )
     return "".join(parts)
+
+
+def render_markdown(result: ScanResult, plan: List[Dict[str, Any]]) -> str:
+    """Same ledger as a paste-able Markdown table (issue / blog friendly)."""
+    lines = [
+        "# 🍔⏳ 麦麦到期清单",
+        "",
+        "> 你的每一张券、每一分积分、每一次抽奖机会，都在倒计时。",
+        "",
+        "| 待清算总额 | 7天内将蒸发 | 30天内到期 | 已过期 |",
+        "|---:|---:|---:|---:|",
+        "| ¥%.2f | ¥%.2f | %d 项 | %d 项 |" % (
+            result.total_value, result.at_risk_value,
+            len(result.expiring_30d), result.dead_count),
+        "",
+        "## ⏰ 清算计划",
+        "",
+        "| # | 资产 | 估值 | 紧迫度 | 动作 |",
+        "|---:|---|---:|---|---|",
+    ]
+    for item in plan:
+        lines.append("| %d | %s %s | ¥%.2f | %s | %s |" % (
+            item["step"], item["icon"], item["asset"],
+            item["value"], item["urgency"], item["action"]))
+    lines += ["", "## 🔌 工具溯源", "",
+              "、".join("`%s`" % t for t in result.tools_ok), ""]
+    snapshot = result.account_snapshot
+    if snapshot.get("orders_top_slot"):
+        lines += [
+            "## 🧠 历史复盘（来自 `order-list`）",
+            "",
+            "- 近 %d 单累计消费 **¥%.2f**，平均客单价 ¥%.2f" % (
+                snapshot.get("orders_count", 0),
+                snapshot.get("orders_total_spend", 0.0),
+                snapshot.get("orders_avg", 0.0)),
+            "- %s%% 的单发生在**%s**——优先核销该时段的券" % (
+                snapshot.get("orders_top_slot_share"),
+                snapshot.get("orders_top_slot")),
+            "",
+        ]
+    lines += ["---", "", "由 `mcd-expiry-ledger` 生成 · 数据来自 McDonald's China 官方 MCP"]
+    return "\n".join(lines)
