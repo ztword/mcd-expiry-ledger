@@ -8,7 +8,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#-30-秒上手)
-[![Tests](https://img.shields.io/badge/tests-12%2F12-brightgreen)](#-工程化)
+[![Tests](https://img.shields.io/badge/tests-15%2F15-brightgreen)](#-工程化)
 [![MCP](https://img.shields.io/badge/McDonald's%20China-MCP-ffb800)](https://open.mcd.cn/mcp)
 [![Contest](https://img.shields.io/badge/1024·麦当劳程序员创意开发大赛-参赛作品-e11d48)](https://github.com/M-China/mcd-developer-innovation-challenge/issues/155)
 
@@ -40,6 +40,8 @@
 </div>
 
 ## ✨ 30 秒上手（无需 Token）
+
+**🌐 在线查看样例报告（不用 clone）**：https://ztword.github.io/mcd-expiry-ledger/report-sample.html
 
 ```bash
 git clone https://github.com/ztword/mcd-expiry-ledger.git
@@ -117,7 +119,7 @@ Token 只发往麦当劳官方 MCP 端点（`https://mcp.mcd.cn`），本仓库�
 
 ## 🔌 MCP 工具覆盖
 
-一次完整 `scan` 会真实调用 **10 个官方 MCP 工具**，其中 5 个（🏷️）是本次大赛多数项目没有覆盖的低频高价值工具：
+一次完整 `scan` 会真实调用 **12 个官方 MCP 工具**，其中 5 个（🏷️）是本次大赛多数项目没有覆盖的低频高价值工具：
 
 | 工具 | 作用 | 稀缺度 |
 |---|---|---|
@@ -132,11 +134,15 @@ Token 只发往麦当劳官方 MCP 端点（`https://mcp.mcd.cn`），本仓库�
 | `campaign-calendar` | 进行中的活动权益 | 常规 |
 | `order-list` | **历史订单 → 时段画像与消费复盘** | 🏷️ |
 | `query-nearby-stores` | **附近门店 → 哪家店能消化你的券**（可选） | 🏷️ |
+| `now-time-info` | **服务器时间校准 → 到期计算不靠本地时钟** | 🏷️ |
+| `mall-order-list` | **已兑记录 → 兑换建议避开重复项** | 🏷️ |
 
-v1.1 新增的两个工具让报告从"清单"进化成"策略"：
+v1.1–v1.2 新增的四个工具让报告从"清单"进化成"策略"：
 
 - **`order-list` 历史复盘**：算出你几点吃饭、平均客单价、最常点什么。券只在它的时段有效——时段对上了才算省钱，于是清算计划最后会多出一条策略建议（"你 43% 的单发生在晚餐，优先核销晚餐券"）。
 - **`query-nearby-stores` 门店匹配**：门店券离开门店即失效。传一个地址，报告会告诉你哪家店最近、能用掉哪些券。
+- **`now-time-info` 时钟校准**：到期判断跑在本地时钟上，一台快了 3 小时的机器会把今晚过期的券标成"已过期"。一次额外调用把整个错误类别消掉。
+- **`mall-order-list` 已兑记录**：避免反复推荐同一个你已经兑换过的商品。
 
 工程细节：
 
@@ -197,6 +203,7 @@ mcd-expiry-ledger/
 │   ├── client.py      # 零依赖 MCP Streamable HTTP 客户端（SSE/Session/错误语义）
 │   ├── ledger.py      # 资产生命周期引擎：扫描/归一化/估值/清算计划/时段画像
 │   ├── report.py      # 自包含 HTML + Markdown 报告（内联 CSS + 手写 SVG 图表）
+│   │                  # + 账户快照面板（时间校准/已兑记录）
 │   ├── demo.py        # 无 Token 沙箱：离线演示完整链路
 │   └── cli.py         # demo / scan / ping / tools（--address / --markdown / --json）
 ├── docs/
@@ -204,7 +211,7 @@ mcd-expiry-ledger/
 │   ├── report-sample.md     # Markdown 版样例
 │   ├── sample-data.json     # 结构化样例数据
 │   └── report-demo.png      # 报告截图
-├── tests/             # 12 个引擎单测
+├── tests/             # 15 个引擎单测
 ├── .github/workflows/ # CI 配置（本地已备好，GitHub 网页手动创建即可启用）
 ├── pyproject.toml     # 可 pip install -e .（依赖为空）
 ├── SKILL.md           # 标准 Skill 描述（WorkBuddy / Claude / Cursor 通用）
@@ -218,7 +225,7 @@ mcd-expiry-ledger/
 
 ```bash
 pip install -e .                            # 装完得到 mcd-expiry-ledger 命令
-python -m unittest discover -s tests -v     # 12 个测试，全绿
+python -m unittest discover -s tests -v     # 15 个测试，全绿
 ```
 
 测试矩阵覆盖 5 个 Python 版本 + 4 类冒烟。CI 配置已备好（`py3.9 → 3.13` × 单测 × demo/markdown 冒烟 × 「无 Token 时 `ping` 必须 exit 2 而不是抛栈」的边界用例），因 GitHub 安全策略（禁止通过 API 写入 `.github/workflows/`），需在仓库网页 **Add file → Create new file** 手动创建 `.github/workflows/ci.yml` 并粘贴仓库内同名文件内容即可启用：
