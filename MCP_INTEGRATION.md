@@ -14,7 +14,7 @@
 
 客户端细节：完整实现 `initialize` 握手（含 `notifications/initialized`）、`tools/list`、`tools/call`；同时兼容 `application/json` 与 `text/event-stream` 两种响应；对 401（Token 无效）、429（600 次/分钟限流）做了语义化报错。
 
-## 2. 使用的 Tool 清单（8 个）
+## 2. 使用的 Tool 清单（10 个）
 
 ### 2.1 `query-my-coupons` — 我的优惠券
 
@@ -62,7 +62,22 @@
 - **调用时机**：读取当月活动日历，仅保留"进行中"条目。
 - **业务价值**：活动权益（如 1+1 随心配）随活动窗口关闭而失效，被纳入同一张倒计时表。
 
-> 🏷️ 标记的 5 个工具（`available-coupons` / `auto-bind-coupons` / `query-lottery-info` / `query-my-prizes` / `mall-points-products`）属于大赛多数参赛项目未覆盖的低频高价值工具。
+### 2.10 `order-list` — 历史订单 🏷️
+
+- **调用时机**：扫描收尾阶段，拉取近期到店/外送订单。
+- **使用的字段**：`orderTime`、`totalPrice`/`payAmount`、`storeName`、`orderType`、`mealNames`。
+- **业务价值**：这是本项目从"到期清单"升级为"清算策略"的关键。历史订单被聚合成三样东西：
+  1. **时段画像**：按下单小时归入早餐/午餐/下午茶/晚餐/夜宵，输出占比最高时段。券只在它的时段有效——时段对上了才算省钱；
+  2. **消费水平**：订单数、累计消费、平均客单价，用于判断"该凑什么价位的券"；
+  3. **口味与门店偏好**：最常点餐品 Top5、最常去门店，与门店券、商城可兑商品做交叉。
+
+### 2.11 `query-nearby-stores` — 附近门店（可选）🏷️
+
+- **调用时机**：仅当用户通过 `--address` 提供地址/关键词时调用（附加能力，不提供则跳过）。
+- **业务价值**：门店券离开门店即失效。报告会列出附近门店、地址与距离，让"哪家店能用掉这张券"从猜测变成可查。
+- **降级设计**：地址参数缺失时该工具直接跳过并记录到"降级明细"，不会让整次扫描失败。
+
+> 🏷️ 标记的 7 个工具（`available-coupons` / `auto-bind-coupons` / `query-lottery-info` / `query-my-prizes` / `mall-points-products` / `order-list` / `query-nearby-stores`）属于大赛多数参赛项目未覆盖的低频高价值工具。
 
 ## 3. 调用流程
 
@@ -81,7 +96,9 @@ tools/list（能力发现，供 ping 命令自检）
      ├── query-lottery-info    ──► Asset[lottery]（期望值估值）
      ├── query-my-prizes       ──► Asset[prize]×N
      ├── mall-points-products  ──► Asset[mall_product]×N
-     └── campaign-calendar     ──► Asset[campaign]×N
+     ├── campaign-calendar     ──► Asset[campaign]×N
+     ├── order-list            ──► 时段画像 + 消费水平 + 口味偏好
+     └── query-nearby-stores   ──► 附近门店（可选，需 address）
      │
      ▼
 统一归一化：Asset{kind, value, expires_at, source_tool}
@@ -90,12 +107,13 @@ tools/list（能力发现，供 ping 命令自检）
 priority = value × urgency_weight(days_left)   →  排序
      │
      ▼
-清算计划（含每步应调用的 MCP 工具）+ 单文件 HTML 报告
+清算计划（含每步应调用的 MCP 工具 + 历史复盘策略项）
+  + 单文件 HTML 报告 / Markdown 报告 / JSON 数据
 ```
 
 ## 4. 限流与健壮性
 
-- 官方限制 600 次/分钟。本项目单次 `scan` 恰好 8 次 `tools/call` + 1 次 `initialize` + 1 次 `tools/list`，距离限流阈值有两个数量级的余量。
+- 官方限制 600 次/分钟。本项目完整 `scan` 共 **10 次 `tools/call`**（门店匹配为第 11 次，可选）+ 1 次 `initialize` + 1 次 `tools/list`，距离限流阈值仍有两个数量级的余量。
 - `call_tool(..., safe=True)`：任何单个工具的失败（网络抖动、Token 权限缺失、字段结构变更）只进入报告的「降级明细」区，不中断整体扫描。
 - 所有日期字段经多格式容错解析（`2026-10-25 23:59:59` / 时间戳 / `2026年10月25日` 等）。
 
