@@ -9,7 +9,7 @@ China MCP server.
 Zero dependencies beyond the Python standard library.
 """
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 __author__ = "ztword"
 __license__ = "MIT"
 
