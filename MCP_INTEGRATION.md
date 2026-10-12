@@ -14,7 +14,7 @@
 
 客户端细节：完整实现 `initialize` 握手（含 `notifications/initialized`）、`tools/list`、`tools/call`；同时兼容 `application/json` 与 `text/event-stream` 两种响应；对 401（Token 无效）、429（600 次/分钟限流）做了语义化报错。
 
-## 2. 使用的 Tool 清单（10 个）
+## 2. 使用的 Tool 清单（12 个）
 
 ### 2.1 `query-my-coupons` — 我的优惠券
 
