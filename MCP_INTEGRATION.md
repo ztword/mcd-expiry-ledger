@@ -77,7 +77,19 @@
 - **业务价值**：门店券离开门店即失效。报告会列出附近门店、地址与距离，让"哪家店能用掉这张券"从猜测变成可查。
 - **降级设计**：地址参数缺失时该工具直接跳过并记录到"降级明细"，不会让整次扫描失败。
 
-> 🏷️ 标记的 7 个工具（`available-coupons` / `auto-bind-coupons` / `query-lottery-info` / `query-my-prizes` / `mall-points-products` / `order-list` / `query-nearby-stores`）属于大赛多数参赛项目未覆盖的低频高价值工具。
+### 2.12 `now-time-info` — 服务器时间校准 🏷️
+
+- **调用时机**：每次 `scan` 的第一步，先于所有资产扫描。
+- **使用的字段**：`serverTime` / `currentTime` / `timestamp`（多字段名容错）。
+- **业务价值**：到期判断依赖时钟。一台比真实时间快 3 小时的机器，会把今晚 23:59 才过期的券标成"已过期 3 小时"——排序全错。本项目用 MCP 服务器时间减去本地时间得到 `clock_offset`，所有 `days_left` 都基于校准后的时钟计算，报告里也会明确写出"本地时钟偏差 ±N 秒"。
+
+### 2.13 `mall-order-list` — 商城已兑订单 🏷️
+
+- **调用时机**：积分商城扫描之后。
+- **使用的字段**：`productName`、`points`、`orderTime`。
+- **业务价值**：兑换建议最怕重复推荐。拉取近一年商城订单后，清算计划会追加一条"最近已兑换：XX —— 兑换建议会避开这些"，把"该兑什么"和"已经兑过什么"分开。
+
+> 🏷️ 标记的 9 个工具（`available-coupons` / `auto-bind-coupons` / `query-lottery-info` / `query-my-prizes` / `mall-points-products` / `order-list` / `query-nearby-stores` / `now-time-info` / `mall-order-list`）属于大赛多数参赛项目未覆盖的低频高价值工具。
 
 ## 3. 调用流程
 
@@ -89,6 +101,7 @@ tools/list（能力发现，供 ping 命令自检）
      │
      ▼ 以下 8 个 tools/call 逐个执行，safe 模式（单点失败不中断）
      │
+     ├── now-time-info         ──► 时钟校准（clock_offset）
      ├── query-my-coupons      ──► Asset[coupon]×N
      ├── query-store-coupons   ──► Asset[coupon·store]×N
      ├── available-coupons     ──► Asset[coupon·claimable]×N
@@ -98,6 +111,7 @@ tools/list（能力发现，供 ping 命令自检）
      ├── mall-points-products  ──► Asset[mall_product]×N
      ├── campaign-calendar     ──► Asset[campaign]×N
      ├── order-list            ──► 时段画像 + 消费水平 + 口味偏好
+     ├── mall-order-list       ──► 已兑记录（避免重复建议）
      └── query-nearby-stores   ──► 附近门店（可选，需 address）
      │
      ▼
@@ -113,7 +127,7 @@ priority = value × urgency_weight(days_left)   →  排序
 
 ## 4. 限流与健壮性
 
-- 官方限制 600 次/分钟。本项目完整 `scan` 共 **10 次 `tools/call`**（门店匹配为第 11 次，可选）+ 1 次 `initialize` + 1 次 `tools/list`，距离限流阈值仍有两个数量级的余量。
+- 官方限制 600 次/分钟。本项目完整 `scan` 共 **12 次 `tools/call`**（门店匹配为第 13 次，可选）+ 1 次 `initialize` + 1 次 `tools/list`，距离限流阈值仍有两个数量级的余量。
 - `call_tool(..., safe=True)`：任何单个工具的失败（网络抖动、Token 权限缺失、字段结构变更）只进入报告的「降级明细」区，不中断整体扫描。
 - 所有日期字段经多格式容错解析（`2026-10-25 23:59:59` / 时间戳 / `2026年10月25日` 等）。
 
