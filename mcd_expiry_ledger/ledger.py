@@ -180,6 +180,8 @@ class ScanResult:
     tools_ok: List[str] = field(default_factory=list)
     tools_failed: Dict[str, str] = field(default_factory=dict)
     account_snapshot: Dict[str, Any] = field(default_factory=dict)
+    orders: List[Dict[str, Any]] = field(default_factory=list)
+    stores: List[Dict[str, Any]] = field(default_factory=list)
     generated_at: str = ""
 
     def __post_init__(self) -> None:
@@ -235,6 +237,8 @@ class ScanResult:
             "tools_ok": self.tools_ok,
             "tools_failed": self.tools_failed,
             "account_snapshot": self.account_snapshot,
+            "orders": self.orders,
+            "stores": self.stores,
             "assets": [a.to_dict() for a in self.sorted_assets()],
         }
 
@@ -528,28 +532,133 @@ class LedgerEngine:
             ))
         result.tools_ok.append("campaign-calendar")
 
+    def _scan_orders(self, result: ScanResult) -> None:
+        """Historical orders → spending profile with a meal-slot insight.
+
+        The trick: a coupon is only worth its face value if you actually eat in
+        the slot it is valid for.  So we learn *when* this person orders, then
+        the plan can prefer coupons that match that rhythm.
+        """
+        payload = self.client.call_tool("order-list", safe=True)
+        orders = _as_list(payload, "orders", "list", "data", "items")
+        total_spend = 0.0
+        slots: Dict[str, int] = {}
+        meal_tally: Dict[str, int] = {}
+        channels: Dict[str, int] = {}
+        for order in orders:
+            amount = (_money(order, "totalPrice", "payAmount", "amount",
+                             "orderAmount", "总价", "支付金额")
+                      or _money(order, "price", "金额"))
+            total_spend += amount
+            result.orders.append({
+                "date": str(_pick(order, "orderTime", "createTime",
+                                  "date", "下单时间", default="")),
+                "amount": round(amount, 2),
+                "store": str(_pick(order, "storeName", "store", "门店",
+                                   default="")),
+                "channel": str(_pick(order, "orderType", "channel", "eatType",
+                                     "就餐方式", default="")),
+                "items": str(_pick(order, "mealNames", "productNames",
+                                   "items", "餐品", default="")),
+            })
+            when = parse_when(_pick(order, "orderTime", "createTime", "date"))
+            if when:
+                hour = when.hour
+                slot = ("早餐" if 5 <= hour < 10 else
+                        "午餐" if 11 <= hour < 14 else
+                        "下午茶" if 14 <= hour < 17 else
+                        "晚餐" if 17 <= hour < 21 else "夜宵")
+                slots[slot] = slots.get(slot, 0) + 1
+            channel = str(_pick(order, "orderType", "channel", "eatType",
+                                "就餐方式", default=""))
+            if channel:
+                channels[channel] = channels.get(channel, 0) + 1
+            for meal in str(_pick(order, "mealNames", "productNames", "items",
+                                  "餐品", default="")).replace(
+                "，", ",").replace("、", ",").split(","):
+                meal = meal.strip()
+                if meal:
+                    meal_tally[meal] = meal_tally.get(meal, 0) + 1
+
+        if result.orders:
+            result.account_snapshot["orders_count"] = len(result.orders)
+            result.account_snapshot["orders_total_spend"] = round(total_spend, 2)
+            result.account_snapshot["orders_avg"] = round(
+                total_spend / len(result.orders), 2)
+            if slots:
+                top_slot = max(slots, key=lambda k: slots[k])
+                share = round(slots[top_slot] / len(result.orders) * 100)
+                result.account_snapshot["orders_top_slot"] = top_slot
+                result.account_snapshot["orders_top_slot_share"] = share
+                result.account_snapshot["orders_slots"] = slots
+            if meal_tally:
+                result.account_snapshot["orders_top_meals"] = sorted(
+                    meal_tally.items(), key=lambda kv: -kv[1])[:5]
+            if channels:
+                result.account_snapshot["orders_channels"] = channels
+        result.tools_ok.append("order-list")
+
+    def _scan_stores(self, result: ScanResult,
+                     address: Optional[str] = None) -> None:
+        """Nearby stores — answers "which shop can actually burn my coupons?".
+
+        Purely additive: called only when the user supplies an address, and a
+        missing/unsupported address argument degrades to a skipped tool rather
+        than a failed scan.
+        """
+        if not address:
+            return
+        arguments: Dict[str, Any] = {}
+        for key in ("address", "keyword", "location", "city"):
+            arguments[key] = address
+        payload = self.client.call_tool("query-nearby-stores", arguments=arguments,
+                                        safe=True)
+        stores = _as_list(payload, "stores", "list", "data", "items")
+        if not stores and isinstance(payload, dict):
+            stores = [payload]
+        for store in stores:
+            result.stores.append({
+                "name": str(_pick(store, "storeName", "name", "title",
+                                  "门店名称", default="未命名门店")),
+                "address": str(_pick(store, "address", "storeAddress",
+                                     "详细地址", default="")),
+                "distance": str(_pick(store, "distance", "距离", default="")),
+            })
+        if result.stores:
+            result.account_snapshot["nearby_stores"] = len(result.stores)
+        result.tools_ok.append("query-nearby-stores")
+
     # -- public API ----------------------------------------------------------
 
-    def scan(self) -> ScanResult:
+    def scan(self, address: Optional[str] = None) -> ScanResult:
         """Run the full sweep, tolerating any tool that refuses to answer."""
         result = ScanResult()
         scanners: List[tuple] = [
-            ("_scan_coupons", self._scan_coupons),
-            ("_scan_points", self._scan_points),
-            ("_scan_lottery", self._scan_lottery),
-            ("_scan_mall", self._scan_mall),
-            ("_scan_campaigns", self._scan_campaigns),
+            ("_scan_coupons", lambda: self._scan_coupons(result)),
+            ("_scan_points", lambda: self._scan_points(result)),
+            ("_scan_lottery", lambda: self._scan_lottery(result)),
+            ("_scan_mall", lambda: self._scan_mall(result)),
+            ("_scan_campaigns", lambda: self._scan_campaigns(result)),
+            ("_scan_orders", lambda: self._scan_orders(result)),
         ]
+        if address:
+            scanners.append(("_scan_stores",
+                             lambda: self._scan_stores(result, address)))
         for label, func in scanners:
             try:
-                func(result)
+                func()
             except Exception as exc:  # noqa: BLE001
                 result.tools_failed[label] = "%s: %s" % (type(exc).__name__, exc)
         result.generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return result
 
     def build_plan(self, result: ScanResult, top: int = 8) -> List[Dict[str, Any]]:
-        """Produce an ordered, executable liquidation plan."""
+        """Produce an ordered, executable liquidation plan.
+
+        Step 0 is always "claim what is free", and the final entry converts the
+        historical order profile into a concrete advice line, so the plan is
+        not just a list of expiries but a strategy.
+        """
         plan: List[Dict[str, Any]] = []
         for asset in result.sorted_assets()[:top]:
             if asset.days_left is not None and asset.days_left < 0:
@@ -583,6 +692,39 @@ class LedgerEngine:
                 "action": "先一键领取，再谈别的",
                 "tool": "auto-bind-coupons",
             })
+
+        # Behavioural advice derived from the order profile.
+        slot = result.account_snapshot.get("orders_top_slot")
+        share = result.account_snapshot.get("orders_top_slot_share")
+        avg = result.account_snapshot.get("orders_avg")
+        if slot and share:
+            plan.append({
+                "step": len(plan) + 1,
+                "asset": "点餐时段画像",
+                "kind": "历史复盘",
+                "icon": "🧠",
+                "value": 0.0,
+                "urgency": "策略",
+                "days_left": None,
+                "action": ("你 %s%% 的单发生在「%s」—— 优先核销该时段的券，"
+                           "平均客单价 ¥%s" % (share, slot, avg or "-")),
+                "tool": "order-list",
+            })
+        if result.stores:
+            plan.append({
+                "step": len(plan) + 1,
+                "asset": "附近门店匹配",
+                "kind": "门店",
+                "icon": "📍",
+                "value": 0.0,
+                "urgency": "策略",
+                "days_left": None,
+                "action": ("已找到 %d 家附近门店：优先在「%s」核销，"
+                           "门店券离开门店即失效"
+                           % (len(result.stores), result.stores[0]["name"])),
+                "tool": "query-nearby-stores",
+            })
+
         for index, item in enumerate(plan):
             item["step"] = index + 1
         return plan
