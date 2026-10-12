@@ -36,7 +36,7 @@
 **麦麦到期清单做一件事：扫全账户 → 算出每项资产的死亡时间 → 结合你的历史点餐时段 → 按「你再等就会损失多少」排序 → 给出一份照着做就行的清算计划。**
 
 <div align="center">
-<img src="docs/report-demo.png" alt="麦麦到期清单报告示例" width="860">
+<img src="docs/social-card.png" alt="麦麦到期清单" width="860">
 </div>
 
 ## ✨ 30 秒上手（无需 Token）
