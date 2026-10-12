@@ -6,10 +6,12 @@
 
 *Every McDonald's China coupon, point balance and lottery draw is quietly counting down. Nobody ever put those clocks on one page — so we did.*
 
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#-30-秒上手)
+[![CI](https://github.com/ztword/mcd-expiry-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/ztword/mcd-expiry-ledger/actions)
+[![Tests](https://img.shields.io/badge/tests-12%2F12-brightgreen)](#-工程化)
 [![MCP](https://img.shields.io/badge/McDonald's%20China-MCP-ffb800)](https://open.mcd.cn/mcp)
-[![Contest](https://img.shields.io/badge/1024·麦当劳程序员创意开发大赛-参赛作品-e11d48)](https://github.com/M-China/mcd-developer-innovation-challenge)
+[![Contest](https://img.shields.io/badge/1024·麦当劳程序员创意开发大赛-参赛作品-e11d48)](https://github.com/M-China/mcd-developer-innovation-challenge/issues/155)
 
 **[📖 交互式样例报告](examples/report-sample.html)** · **[🎮 无 Token 立即体验](#-30-秒上手)** · **[🔌 MCP 工具覆盖](#-mcp-工具覆盖)**
 
@@ -28,10 +30,11 @@
 | 免费抽奖次数 | **按周期重置，过期作废** |
 | 中过没领的奖品 | 领取窗口关闭 = 没中过 |
 | 进行中的活动权益 | 活动结束立刻失效 |
+| 历史订单里的消费节奏 | 决定你的券到底该在哪个时段用 |
 
 这些时钟各自滴答，App 里分散在五六个页面，**没有任何一个界面把它们放在同一张时间轴上**。你永远是在它们过期之后，才想起来"哦，那张券没用掉"。
 
-**麦麦到期清单做一件事：扫全账户 → 算出每项资产的死亡时间 → 按「你再等就会损失多少」排序 → 给出一份照着做就行的清算计划。**
+**麦麦到期清单做一件事：扫全账户 → 算出每项资产的死亡时间 → 结合你的历史点餐时段 → 按「你再等就会损失多少」排序 → 给出一份照着做就行的清算计划。**
 
 <div align="center">
 <img src="examples/report-demo.png" alt="麦麦到期清单报告示例" width="860">
@@ -81,6 +84,12 @@ python -m mcd_expiry_ledger scan
 # 方式二：命令行参数
 python -m mcd_expiry_ledger scan --token YOUR_MCP_TOKEN
 
+# 带上地址，额外做「附近门店匹配」——门店券离开门店即失效
+python -m mcd_expiry_ledger scan --address "北京朝阳区建国路"
+
+# 输出可粘贴的 Markdown 报告（贴 GitHub Issue / 博客用）
+python -m mcd_expiry_ledger scan --markdown report.md
+
 # 先自检连通性
 python -m mcd_expiry_ledger ping
 ```
@@ -109,7 +118,7 @@ Token 只发往麦当劳官方 MCP 端点（`https://mcp.mcd.cn`），本仓库�
 
 ## 🔌 MCP 工具覆盖
 
-一次 `scan` 会真实调用 **8 个官方 MCP 工具**，其中 5 个（🏷️）是本次大赛多数项目没有覆盖的低频高价值工具：
+一次完整 `scan` 会真实调用 **10 个官方 MCP 工具**，其中 5 个（🏷️）是本次大赛多数项目没有覆盖的低频高价值工具：
 
 | 工具 | 作用 | 稀缺度 |
 |---|---|---|
@@ -122,6 +131,13 @@ Token 只发往麦当劳官方 MCP 端点（`https://mcp.mcd.cn`），本仓库�
 | `query-my-prizes` | 已中奖未领取的奖品 | 🏷️ |
 | `mall-points-products` | 积分商城可兑商品（含下架时间） | 🏷️ |
 | `campaign-calendar` | 进行中的活动权益 | 常规 |
+| `order-list` | **历史订单 → 时段画像与消费复盘** | 🏷️ |
+| `query-nearby-stores` | **附近门店 → 哪家店能消化你的券**（可选） | 🏷️ |
+
+v1.1 新增的两个工具让报告从"清单"进化成"策略"：
+
+- **`order-list` 历史复盘**：算出你几点吃饭、平均客单价、最常点什么。券只在它的时段有效——时段对上了才算省钱，于是清算计划最后会多出一条策略建议（"你 43% 的单发生在晚餐，优先核销晚餐券"）。
+- **`query-nearby-stores` 门店匹配**：门店券离开门店即失效。传一个地址，报告会告诉你哪家店最近、能用掉哪些券。
 
 工程细节：
 
@@ -161,15 +177,16 @@ Token 只发往麦当劳官方 MCP 端点（`https://mcp.mcd.cn`），本仓库�
        │  client.py     │──────────────────────────►  https://mcp.mcd.cn
        │  零依赖 MCP 客户端│                            （麦当劳官方）
        └───────┬────────┘
-               │ 9 个工具的原始返回
+               │ 10 个工具的原始返回
        ┌───────▼────────┐
        │  ledger.py     │   归一化 → 估值 → 倒计时 → 优先级
        │  生命周期引擎    │   Asset { kind, value, expires_at, priority }
+       │                │   + 历史订单 → 时段画像 → 策略建议
        └───────┬────────┘
                │  ScanResult + 清算计划
        ┌───────▼────────┐
        │  report.py     │   单文件 HTML：SVG 环图 + 倒计时条 + 动作清单
-       │  报告生成器      │   （无 CDN、无构建步骤，浏览器直接开）
+       │  报告生成器      │   + Markdown 版（可直接贴 Issue / 博客）
        └────────────────┘
 ```
 
@@ -179,20 +196,33 @@ Token 只发往麦当劳官方 MCP 端点（`https://mcp.mcd.cn`），本仓库�
 mcd-expiry-ledger/
 ├── mcd_expiry_ledger/
 │   ├── client.py      # 零依赖 MCP Streamable HTTP 客户端（SSE/Session/错误语义）
-│   ├── ledger.py      # 资产生命周期引擎：扫描/归一化/估值/清算计划
-│   ├── report.py      # 自包含 HTML 报告（内联 CSS + 手写 SVG 图表）
+│   ├── ledger.py      # 资产生命周期引擎：扫描/归一化/估值/清算计划/时段画像
+│   ├── report.py      # 自包含 HTML + Markdown 报告（内联 CSS + 手写 SVG 图表）
 │   ├── demo.py        # 无 Token 沙箱：离线演示完整链路
-│   └── cli.py         # demo / scan / ping / tools
+│   └── cli.py         # demo / scan / ping / tools（--address / --markdown / --json）
 ├── examples/
 │   ├── report-sample.html   # 交互式样例报告
+│   ├── report-sample.md     # Markdown 版样例
+│   ├── sample-data.json     # 结构化样例数据
 │   └── report-demo.png      # 报告截图
-├── tests/             # 引擎单测
+├── tests/             # 12 个引擎单测
+├── .github/workflows/ # CI：5 个 Python 版本 × 单测 + 冒烟 + 边界用例
+├── pyproject.toml     # 可 pip install -e .（依赖为空）
 ├── SKILL.md           # 标准 Skill 描述（WorkBuddy / Claude / Cursor 通用）
 ├── MCP_INTEGRATION.md # 参赛要求：MCP 工具调用明细与业务价值
 ├── CONTEST_DECLARATION.md
 ├── workbuddy.md       # WorkBuddy 开发对话上下文（专项奖励材料）
 └── mcp-config.example.json
 ```
+
+## 🛠️ 工程化
+
+```bash
+pip install -e .          # 装完得到 mcd-expiry-ledger 命令
+python -m unittest discover -s tests -v   # 12 个测试
+```
+
+CI 在 **Python 3.9 / 3.10 / 3.11 / 3.12 / 3.13** 五个版本上跑单测与冒烟，并验证「无 Token 时 `ping` 必须干净失败（exit 2）而不是抛栈」。
 
 ## ❓ FAQ
 
@@ -207,6 +237,12 @@ A: 评审和围观者 clone 下来就该直接能跑。依赖安装是这个比�
 
 **Q: demo 数据是真的吗？**
 A: 不是，全部为虚构，且明确标注在报告头部。真实数据只在你提供自己的 Token 后产生。
+
+**Q: 为什么要分析我的历史订单？**
+A: 一张早餐券对只吃晚餐的人一文不值。`order-list` 让我们算出你的真实点餐节奏，清算计划因此能给出"优先核销晚餐券"这类具体策略，而不只是罗列到期日。历史订单只在本地读取与展示，不会上传。
+
+**Q: 能装成命令用吗？**
+A: 可以，`pip install -e .` 之后直接用 `mcd-expiry-ledger demo`。但安装本身不是必须的——不安装也能 `python -m mcd_expiry_ledger` 跑。
 
 ## 📄 许可与声明
 
