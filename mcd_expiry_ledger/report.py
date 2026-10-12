@@ -22,6 +22,22 @@ _PALETTE = {
     "calm":     "#10b981",
 }
 
+#: friendly labels for the account-snapshot panel
+SNAPSHOT_LABELS = {
+    "server_time": "时间校准",
+    "clock_offset_seconds": "本地时钟偏差",
+    "availablePoints": "可用积分",
+    "expiringPoints": "即将过期积分",
+    "usablePoints": "可用积分",
+    "orders_count": "历史订单",
+    "orders_total_spend": "累计消费",
+    "orders_avg": "平均客单价",
+    "orders_top_slot": "最常点餐时段",
+    "claimable_coupons": "麦麦省待领",
+    "nearby_stores": "附近门店",
+    "redeemed_recent": "最近已兑换",
+}
+
 _CSS = """
 *{box-sizing:border-box}
 body{margin:0;background:#f6f7f9;color:#14171a;
@@ -234,9 +250,45 @@ def render_html(result: ScanResult,
     )
 
     # composition + snapshot
+    snap = result.account_snapshot
+
+    def _fmt(key: str, value: Any) -> str:
+        if key == "clock_offset_seconds":
+            secs = float(value)
+            if abs(secs) < 1:
+                return "已校准（本地时钟准确）"
+            return "已校准（本地偏差 %+.0f 秒）" % secs
+        if key == "server_time":
+            return "MCP 服务器时间 %s" % value
+        if key in ("availablePoints", "expiringPoints", "usablePoints",
+                   "即将过期积分"):
+            return "%.0f 积分" % float(value)
+        if key == "orders_count":
+            return "近 %d 单" % int(value)
+        if key == "orders_total_spend":
+            return "¥%.2f" % float(value)
+        if key == "orders_avg":
+            return "客单价 ¥%.2f" % float(value)
+        if key == "orders_top_slot":
+            return "%s（%s%%）" % (value, snap.get(
+                "orders_top_slot_share", "-"))
+        if key == "claimable_coupons":
+            return "%d 张待领" % int(value)
+        if key == "nearby_stores":
+            return "%d 家" % int(value)
+        if key == "redeemed_recent":
+            return "、".join(str(v) for v in value[:3])
+        return str(value)
+
+    order_keys = ["server_time", "clock_offset_seconds", "availablePoints",
+                  "expiringPoints", "orders_count", "orders_total_spend",
+                  "orders_avg", "orders_top_slot", "claimable_coupons",
+                  "nearby_stores", "redeemed_recent"]
+    shown = [k for k in order_keys if k in snap]
     snapshot = "".join(
-        '<div class="kv"><span>%s</span><b>%s</b></div>' % (_e(k), _e(v))
-        for k, v in list(result.account_snapshot.items())[:7]
+        '<div class="kv"><span>%s</span><b>%s</b></div>' % (
+            _e(SNAPSHOT_LABELS.get(k, k)), _e(_fmt(k, snap[k])))
+        for k in shown
     ) or '<div class="kv"><span>账户快照不可用</span><b>—</b></div>'
     composition = "".join(
         '<div class="kv"><span>%s %s</span><b>%d 项</b></div>' % (
