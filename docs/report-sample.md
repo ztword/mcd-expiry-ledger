@@ -21,10 +21,11 @@
 | 9 | 🎁 限定周边·汉堡钥匙扣 | ¥39.00 | 本月内 | 已中奖别忘领 —— 逾期等于没中 |
 | 10 | 🧠 点餐时段画像 | ¥0.00 | 策略 | 你 43% 的单发生在「晚餐」—— 优先核销该时段的券，平均客单价 ¥31.79 |
 | 11 | 📍 附近门店匹配 | ¥0.00 | 策略 | 已找到 3 家附近门店：优先在「麦麦·国贸餐厅」核销，门店券离开门店即失效 |
+| 12 | 🗂️ 已兑记录 | ¥0.00 | 策略 | 最近已兑换：¥10 麦乐送代金券、限定汉堡回车键 —— 兑换建议会避开这些 |
 
 ## 🔌 工具溯源
 
-`query-my-coupons`、`query-store-coupons`、`available-coupons`、`query-my-account`、`query-lottery-info`、`query-my-prizes`、`mall-points-products`、`campaign-calendar`、`order-list`、`query-nearby-stores`
+`now-time-info`、`query-my-coupons`、`query-store-coupons`、`available-coupons`、`query-my-account`、`query-lottery-info`、`query-my-prizes`、`mall-points-products`、`mall-order-list`、`campaign-calendar`、`order-list`、`query-nearby-stores`
 
 ## 🧠 历史复盘（来自 `order-list`）
 
