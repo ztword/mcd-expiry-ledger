@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-12 21:46:26",
+  "generated_at": "2026-10-12 22:37:10",
   "summary": {
     "total_value": 643.7,
     "at_risk_value": 424.5,
@@ -9,6 +9,7 @@
     "dead_count": 1
   },
   "tools_ok": [
+    "now-time-info",
     "query-my-coupons",
     "query-store-coupons",
     "available-coupons",
@@ -16,17 +17,24 @@
     "query-lottery-info",
     "query-my-prizes",
     "mall-points-products",
+    "mall-order-list",
     "campaign-calendar",
     "order-list",
     "query-nearby-stores"
   ],
   "tools_failed": {},
   "account_snapshot": {
+    "clock_offset_seconds": -0.6,
+    "server_time": "2026-10-12 22:37:10",
     "claimable_coupons": 3,
     "availablePoints": 4820,
     "usedPoints": 1260,
     "frozenPoints": 0,
     "expiringPoints": 1150,
+    "redeemed_recent": [
+      "¥10 麦乐送代金券",
+      "限定汉堡回车键"
+    ],
     "orders_count": 7,
     "orders_total_spend": 222.5,
     "orders_avg": 31.79,
@@ -148,6 +156,7 @@
         "prize_pool": 4,
         "expected_each": 39.0
       },
+      "clock_offset": -0.604132,
       "days_left": 6,
       "urgency": "本周",
       "urgency_tier": "warn",
@@ -164,6 +173,7 @@
       "action": "点单时用掉它（calculate-price 会自动判可用性）",
       "action_tool": "calculate-price",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 1,
       "urgency": "72小时",
       "urgency_tier": "critical",
@@ -182,6 +192,7 @@
       "meta": {
         "points": 4820.0
       },
+      "clock_offset": -0.604132,
       "days_left": 12,
       "urgency": "两周内",
       "urgency_tier": "warn",
@@ -198,6 +209,7 @@
       "action": "已中奖别忘领 —— 逾期等于没中",
       "action_tool": null,
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 2,
       "urgency": "72小时",
       "urgency_tier": "critical",
@@ -216,6 +228,7 @@
       "meta": {
         "points": 3200.0
       },
+      "clock_offset": -0.604132,
       "days_left": 8,
       "urgency": "两周内",
       "urgency_tier": "warn",
@@ -232,6 +245,7 @@
       "action": "在这家门店点单时核销",
       "action_tool": "calculate-price",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 0,
       "urgency": "今天到期",
       "urgency_tier": "critical",
@@ -248,6 +262,7 @@
       "action": "活动窗口关闭后权益同时失效",
       "action_tool": null,
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 4,
       "urgency": "本周",
       "urgency_tier": "warn",
@@ -264,6 +279,7 @@
       "action": "已中奖别忘领 —— 逾期等于没中",
       "action_tool": null,
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 19,
       "urgency": "本月内",
       "urgency_tier": "steady",
@@ -280,6 +296,7 @@
       "action": "auto-bind-coupons 一键领取",
       "action_tool": "auto-bind-coupons",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 5,
       "urgency": "本周",
       "urgency_tier": "warn",
@@ -296,6 +313,7 @@
       "action": "auto-bind-coupons 一键领取",
       "action_tool": "auto-bind-coupons",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 11,
       "urgency": "两周内",
       "urgency_tier": "warn",
@@ -315,6 +333,7 @@
         "points": 1150.0,
         "sub_type": "expiring"
       },
+      "clock_offset": -0.604132,
       "days_left": 12,
       "urgency": "两周内",
       "urgency_tier": "warn",
@@ -331,6 +350,7 @@
       "action": "点单时用掉它（calculate-price 会自动判可用性）",
       "action_tool": "calculate-price",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 3,
       "urgency": "本周",
       "urgency_tier": "warn",
@@ -347,6 +367,7 @@
       "action": "活动窗口关闭后权益同时失效",
       "action_tool": null,
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 13,
       "urgency": "两周内",
       "urgency_tier": "warn",
@@ -365,6 +386,7 @@
       "meta": {
         "points": 1500.0
       },
+      "clock_offset": -0.604132,
       "days_left": 26,
       "urgency": "本月内",
       "urgency_tier": "steady",
@@ -381,6 +403,7 @@
       "action": "点单时用掉它（calculate-price 会自动判可用性）",
       "action_tool": "calculate-price",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 9,
       "urgency": "两周内",
       "urgency_tier": "warn",
@@ -399,6 +422,7 @@
       "meta": {
         "points": 2000.0
       },
+      "clock_offset": -0.604132,
       "days_left": 41,
       "urgency": "安全期",
       "urgency_tier": "calm",
@@ -415,6 +439,7 @@
       "action": "点单时用掉它（calculate-price 会自动判可用性）",
       "action_tool": "calculate-price",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 23,
       "urgency": "本月内",
       "urgency_tier": "steady",
@@ -431,6 +456,7 @@
       "action": "auto-bind-coupons 一键领取",
       "action_tool": "auto-bind-coupons",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 16,
       "urgency": "本月内",
       "urgency_tier": "steady",
@@ -447,6 +473,7 @@
       "action": "点单时用掉它（calculate-price 会自动判可用性）",
       "action_tool": "calculate-price",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": 58,
       "urgency": "安全期",
       "urgency_tier": "calm",
@@ -463,6 +490,7 @@
       "action": "点单时用掉它（calculate-price 会自动判可用性）",
       "action_tool": "calculate-price",
       "meta": {},
+      "clock_offset": -0.604132,
       "days_left": -2,
       "urgency": "已过期",
       "urgency_tier": "dead",
