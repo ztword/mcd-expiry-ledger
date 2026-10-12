@@ -153,6 +153,18 @@ def build_snapshot() -> Dict[str, Dict[str, Any]]:
                  "address": "朝阳区望京SOHO T2"},
             ]
         },
+        "now-time-info": {
+            "serverTime": _NOW.strftime("%Y-%m-%d %H:%M:%S"),
+            "timezone": "Asia/Shanghai",
+        },
+        "mall-order-list": {
+            "orders": [
+                {"productName": "¥10 麦乐送代金券", "points": 1000,
+                 "orderTime": _d(-20.0), "status": "已完成"},
+                {"productName": "限定汉堡回车键", "points": 3200,
+                 "orderTime": _d(-8.0), "status": "已完成"},
+            ]
+        },
     }
 
 
