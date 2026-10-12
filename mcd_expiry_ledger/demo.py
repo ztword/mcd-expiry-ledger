@@ -22,8 +22,11 @@ __all__ = ["DemoClient", "build_snapshot"]
 _NOW = datetime.now()
 
 
-def _d(days: float) -> str:
-    return (_NOW + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+def _d(days: float, hour: Optional[int] = None) -> str:
+    base = _NOW + timedelta(days=days)
+    if hour is None:
+        return base.strftime("%Y-%m-%d %H:%M:%S")
+    return base.replace(hour=hour, minute=30, second=0).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def build_snapshot() -> Dict[str, Dict[str, Any]]:
@@ -113,6 +116,41 @@ def build_snapshot() -> Dict[str, Dict[str, Any]]:
                  "value": 10, "endTime": _d(13.0)},
                 {"campaignName": "早餐会员日", "status": "已结束",
                  "value": 8, "endTime": _d(-5.0)},
+            ]
+        },
+        "order-list": {
+            "orders": [
+                {"orderTime": _d(-1.0, hour=8), "totalPrice": 15.5,
+                 "storeName": "麦麦·国贸餐厅", "orderType": "到店取餐",
+                 "mealNames": "猪柳蛋麦满分套餐,中杯豆浆"},
+                {"orderTime": _d(-2.0, hour=18), "totalPrice": 42.0,
+                 "storeName": "麦麦·望京餐厅", "orderType": "麦乐送",
+                 "mealNames": "麦辣鸡腿堡套餐,麦乐鸡块,可乐"},
+                {"orderTime": _d(-4.0, hour=12), "totalPrice": 27.5,
+                 "storeName": "麦麦·国贸餐厅", "orderType": "到店取餐",
+                 "mealNames": "巨无霸套餐,薯条"},
+                {"orderTime": _d(-6.0, hour=19), "totalPrice": 38.0,
+                 "storeName": "麦麦·双井餐厅", "orderType": "麦乐送",
+                 "mealNames": "安格斯厚牛堡套餐,麦旋风"},
+                {"orderTime": _d(-9.0, hour=8), "totalPrice": 12.0,
+                 "storeName": "麦麦·国贸餐厅", "orderType": "到店取餐",
+                 "mealNames": "麦满分套餐"},
+                {"orderTime": _d(-12.0, hour=20), "totalPrice": 56.5,
+                 "storeName": "麦麦·望京餐厅", "orderType": "麦乐送",
+                 "mealNames": "双人餐,麦辣鸡翅,可乐"},
+                {"orderTime": _d(-15.0, hour=12), "totalPrice": 31.0,
+                 "storeName": "麦麦·双井餐厅", "orderType": "到店取餐",
+                 "mealNames": "板烧鸡腿堡套餐,玉米"},
+            ]
+        },
+        "query-nearby-stores": {
+            "stores": [
+                {"storeName": "麦麦·国贸餐厅", "distance": "280m",
+                 "address": "朝阳区建国门外大街1号"},
+                {"storeName": "麦麦·双井餐厅", "distance": "1.2km",
+                 "address": "朝阳区双井桥西北角"},
+                {"storeName": "麦麦·望京餐厅", "distance": "2.6km",
+                 "address": "朝阳区望京SOHO T2"},
             ]
         },
     }
