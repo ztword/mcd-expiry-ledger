@@ -23,7 +23,8 @@ description: 麦麦到期清单——扫描麦当劳中国账户里所有会过�
 ### 演示模式（无需任何凭据）
 
 ```bash
-python -m mcd_expiry_ledger demo
+python -m mcd_expiry_ledger demo                                   # 基础演示
+python -m mcd_expiry_ledger demo --address "北京朝阳区建国路"        # 含历史复盘+门店匹配的完整版
 ```
 
 内置离线沙箱（虚构数据），用于展示完整链路。首次接触本项目时先用它。
@@ -32,9 +33,12 @@ python -m mcd_expiry_ledger demo
 
 ```bash
 export MCD_MCP_TOKEN=用户的Token
-python -m mcd_expiry_ledger scan          # 完整扫描 → mcd-expiry-report.html
-python -m mcd_expiry_ledger ping          # 连通性自检
-python -m mcd_expiry_ledger tools         # 列出可用工具
+python -m mcd_expiry_ledger scan                                    # 完整扫描 → mcd-expiry-report.html
+python -m mcd_expiry_ledger scan --address "北京朝阳区建国路"         # 附带附近门店匹配
+python -m mcd_expiry_ledger scan --markdown report.md               # 额外输出可粘贴的 Markdown
+python -m mcd_expiry_ledger scan --json data.json --top 10          # 结构化输出 + 计划条数
+python -m mcd_expiry_ledger ping                                    # 连通性自检
+python -m mcd_expiry_ledger tools                                   # 列出可用工具
 ```
 
 Token 申请地址：https://open.mcd.cn/mcp （登录 → 控制台 → 激活）
@@ -63,7 +67,8 @@ Token 申请地址：https://open.mcd.cn/mcp （登录 → 控制台 → 激活�
 
 ## 安全边界（必须遵守）
 
-1. **只读不写**：本 Skill 只调用查询类工具（`query-my-coupons` / `query-my-account` / `query-lottery-info` / `query-my-prizes` / `mall-points-products` / `campaign-calendar` / `available-coupons` / `query-store-coupons`）。
+1. **只读不写**：本 Skill 只调用查询类工具（`query-my-coupons` / `query-store-coupons` / `available-coupons` / `query-my-account` / `query-lottery-info` / `query-my-prizes` / `mall-points-products` / `campaign-calendar` / `order-list` / `query-nearby-stores`）。
 2. **写操作需确认**：清算计划中的 `auto-bind-coupons`（一键领券）、`draw-lottery`（抽奖）、`mall-create-order`（积分兑换）只作为"建议动作 + 工具名"输出。**在用户明确确认前，绝不能替用户执行这些工具。**
 3. **凭据不落盘**：Token 仅经环境变量传入，不写入任何文件、日志或对话。
 4. **失败降级**：单个工具失败不中断扫描，失败信息会出现在报告"降级明细"区，如实告知用户。
+5. **隐私**：历史订单数据（`order-list`）仅用于本地时段画像与消费统计，不上传、不外发。
