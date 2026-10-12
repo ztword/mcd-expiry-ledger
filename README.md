@@ -8,7 +8,6 @@
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#-30-秒上手)
-[![CI](https://github.com/ztword/mcd-expiry-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/ztword/mcd-expiry-ledger/actions)
 [![Tests](https://img.shields.io/badge/tests-12%2F12-brightgreen)](#-工程化)
 [![MCP](https://img.shields.io/badge/McDonald's%20China-MCP-ffb800)](https://open.mcd.cn/mcp)
 [![Contest](https://img.shields.io/badge/1024·麦当劳程序员创意开发大赛-参赛作品-e11d48)](https://github.com/M-China/mcd-developer-innovation-challenge/issues/155)
@@ -206,7 +205,7 @@ mcd-expiry-ledger/
 │   ├── sample-data.json     # 结构化样例数据
 │   └── report-demo.png      # 报告截图
 ├── tests/             # 12 个引擎单测
-├── .github/workflows/ # CI：5 个 Python 版本 × 单测 + 冒烟 + 边界用例
+├── .github/workflows/ # CI 配置（本地已备好，GitHub 网页手动创建即可启用）
 ├── pyproject.toml     # 可 pip install -e .（依赖为空）
 ├── SKILL.md           # 标准 Skill 描述（WorkBuddy / Claude / Cursor 通用）
 ├── MCP_INTEGRATION.md # 参赛要求：MCP 工具调用明细与业务价值
@@ -218,11 +217,40 @@ mcd-expiry-ledger/
 ## 🛠️ 工程化
 
 ```bash
-pip install -e .          # 装完得到 mcd-expiry-ledger 命令
-python -m unittest discover -s tests -v   # 12 个测试
+pip install -e .                            # 装完得到 mcd-expiry-ledger 命令
+python -m unittest discover -s tests -v     # 12 个测试，全绿
 ```
 
-CI 在 **Python 3.9 / 3.10 / 3.11 / 3.12 / 3.13** 五个版本上跑单测与冒烟，并验证「无 Token 时 `ping` 必须干净失败（exit 2）而不是抛栈」。
+测试矩阵覆盖 5 个 Python 版本 + 4 类冒烟。CI 配置已备好（`py3.9 → 3.13` × 单测 × demo/markdown 冒烟 × 「无 Token 时 `ping` 必须 exit 2 而不是抛栈」的边界用例），因 GitHub 安全策略（禁止通过 API 写入 `.github/workflows/`），需在仓库网页 **Add file → Create new file** 手动创建 `.github/workflows/ci.yml` 并粘贴仓库内同名文件内容即可启用：
+
+<details>
+<summary>展开查看 CI 配置</summary>
+
+```yaml
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python-version }}" }
+      - run: pip install -e .
+      - run: python -m unittest discover -s tests -v
+      - run: python -m mcd_expiry_ledger demo --out /tmp/report.html
+      - run: python -m mcd_expiry_ledger demo --markdown /tmp/report.md
+      - run: |
+          if python -m mcd_expiry_ledger ping; then
+            echo "ping should have failed without a token"; exit 1
+          fi
+```
+
+</details>
 
 ## ❓ FAQ
 
