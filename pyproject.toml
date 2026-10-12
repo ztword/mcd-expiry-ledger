@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcd-expiry-ledger"
-version = "1.1.0"
+version = "1.2.0"
 description = "麦麦到期清单：把麦当劳账户里所有会过期的券、积分、抽奖与奖品放到同一张倒计时表上"
 readme = "README.md"
 requires-python = ">=3.9"
