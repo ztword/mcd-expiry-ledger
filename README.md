@@ -12,7 +12,7 @@
 [![MCP](https://img.shields.io/badge/McDonald's%20China-MCP-ffb800)](https://open.mcd.cn/mcp)
 [![Contest](https://img.shields.io/badge/1024·麦当劳程序员创意开发大赛-参赛作品-e11d48)](https://github.com/M-China/mcd-developer-innovation-challenge/issues/155)
 
-**[📖 交互式样例报告](examples/report-sample.html)** · **[🎮 无 Token 立即体验](#-30-秒上手)** · **[🔌 MCP 工具覆盖](#-mcp-工具覆盖)**
+**[🌐 在线查看样例报告（不用 clone）](https://ztword.github.io/mcd-expiry-ledger/report-sample.html)** · **[🎮 无 Token 立即体验](#-30-秒上手)** · **[🔌 MCP 工具覆盖](#-mcp-工具覆盖)**
 
 </div>
 
@@ -36,7 +36,7 @@
 **麦麦到期清单做一件事：扫全账户 → 算出每项资产的死亡时间 → 结合你的历史点餐时段 → 按「你再等就会损失多少」排序 → 给出一份照着做就行的清算计划。**
 
 <div align="center">
-<img src="examples/report-demo.png" alt="麦麦到期清单报告示例" width="860">
+<img src="docs/report-demo.png" alt="麦麦到期清单报告示例" width="860">
 </div>
 
 ## ✨ 30 秒上手（无需 Token）
@@ -199,7 +199,7 @@ mcd-expiry-ledger/
 │   ├── report.py      # 自包含 HTML + Markdown 报告（内联 CSS + 手写 SVG 图表）
 │   ├── demo.py        # 无 Token 沙箱：离线演示完整链路
 │   └── cli.py         # demo / scan / ping / tools（--address / --markdown / --json）
-├── examples/
+├── docs/
 │   ├── report-sample.html   # 交互式样例报告
 │   ├── report-sample.md     # Markdown 版样例
 │   ├── sample-data.json     # 结构化样例数据
