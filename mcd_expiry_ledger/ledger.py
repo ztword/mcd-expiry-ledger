@@ -121,14 +121,19 @@ class Asset:
     action_tool: Optional[str] = None
     meta: Dict[str, Any] = field(default_factory=dict)
     raw: Dict[str, Any] = field(default_factory=dict)
+    #: seconds to add to the local clock, so expiry maths runs on MCP server time
+    clock_offset: float = 0.0
 
     # -- derived -------------------------------------------------------------
+
+    def _now(self) -> datetime:
+        return datetime.now() + timedelta(seconds=self.clock_offset)
 
     @property
     def days_left(self) -> Optional[float]:
         if self.expires_at is None:
             return None
-        delta = self.expires_at - datetime.now()
+        delta = self.expires_at - self._now()
         return round(delta.total_seconds() / 86400.0, 2)
 
     @property
@@ -312,6 +317,44 @@ class LedgerEngine:
     def __init__(self, client: Any, points_per_yuan: float = POINTS_PER_YUAN) -> None:
         self.client = client
         self.points_per_yuan = points_per_yuan
+        self._clock_offset = 0.0
+
+    def _new_asset(self, **kwargs: Any) -> Asset:
+        """Asset factory that stamps the calibrated clock offset onto every row."""
+        kwargs.setdefault("clock_offset", self._clock_offset)
+        return Asset(**kwargs)
+
+    def _calibrate_clock(self, result: ScanResult) -> None:
+        """Ask the MCP server what time it is.
+
+        Expiry maths on a skewed local clock silently mis-ranks everything: a
+        machine that is 3 hours fast will mark tonight's coupons as already
+        dead.  One extra tool call removes an entire class of wrong answers.
+        """
+        payload = self.client.call_tool("now-time-info", safe=True)
+        stamp = None
+        if isinstance(payload, dict):
+            for key in ("serverTime", "currentTime", "time", "now",
+                        "timestamp", "dateTime"):
+                if payload.get(key):
+                    stamp = payload[key]
+                    break
+            for value in payload.values():
+                if stamp is None and isinstance(value, dict):
+                    stamp = value.get("serverTime") or value.get("currentTime")
+                    if stamp is not None:
+                        break
+        server_now = parse_when(stamp) if stamp is not None else None
+        local_now = datetime.now()
+        if server_now is not None:
+            self._clock_offset = (server_now - local_now).total_seconds()
+            result.account_snapshot["clock_offset_seconds"] = round(
+                self._clock_offset, 1)
+            result.account_snapshot["server_time"] = server_now.strftime(
+                "%Y-%m-%d %H:%M:%S")
+        else:
+            self._clock_offset = 0.0
+        result.tools_ok.append("now-time-info")
 
     # -- individual scanners -------------------------------------------------
 
@@ -323,7 +366,7 @@ class LedgerEngine:
                                        "有效期至", "失效时间"))
             value = _money(record, "faceValue", "discount", "amount",
                            "couponValue", "面值", "优惠金额")
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="coupon",
                 source_tool="query-my-coupons",
                 title=str(_pick(record, "couponName", "name", "title",
@@ -344,7 +387,7 @@ class LedgerEngine:
         for record in _as_list(scoped, "coupons", "list", "data"):
             expires = parse_when(_pick(record, "endTime", "expireTime",
                                        "validEndTime", "endDate"))
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="coupon",
                 source_tool="query-store-coupons",
                 title=str(_pick(record, "couponName", "name", "title",
@@ -365,7 +408,7 @@ class LedgerEngine:
         for record in _as_list(claimable, "coupons", "list", "data"):
             expires = parse_when(_pick(record, "endTime", "expireTime",
                                        "validEndTime", "endDate"))
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="coupon",
                 source_tool="available-coupons",
                 title=str(_pick(record, "couponName", "name", "title",
@@ -399,7 +442,7 @@ class LedgerEngine:
                                      "过期时间"))
 
         if usable:
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="point",
                 source_tool="query-my-account",
                 title="可用积分 %.0f" % usable,
@@ -413,7 +456,7 @@ class LedgerEngine:
                 raw=record,
             ))
         if expiring_soon:
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="point",
                 source_tool="query-my-account",
                 title="即将过期积分 %.0f" % expiring_soon,
@@ -449,7 +492,7 @@ class LedgerEngine:
             expected = total * (ratio / 100.0 if ratio > 1 else 1.0 / len(prizes))
 
         if free_draws or _pick(record, "status", "activityStatus"):
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="lottery",
                 source_tool="query-lottery-info",
                 title="免费抽奖 %.0f 次" % free_draws,
@@ -468,7 +511,7 @@ class LedgerEngine:
         for record in _as_list(won, "prizes", "list", "data", "records"):
             expires = parse_when(_pick(record, "claimEndTime", "expireTime",
                                        "endTime", "领取截止时间", "有效期至"))
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="prize",
                 source_tool="query-my-prizes",
                 title=str(_pick(record, "prizeName", "name", "title",
@@ -490,7 +533,7 @@ class LedgerEngine:
                             "所需积分", "兑换积分")
             expires = parse_when(_pick(record, "endTime", "offShelfTime",
                                        "activityEndTime", "endDate"))
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="mall_product",
                 source_tool="mall-points-products",
                 title=str(_pick(record, "productName", "name", "title",
@@ -506,6 +549,17 @@ class LedgerEngine:
             ))
         result.tools_ok.append("mall-points-products")
 
+        # What has already been redeemed — so we stop suggesting it twice.
+        orders = self.client.call_tool("mall-order-list", safe=True)
+        redeemed: List[str] = []
+        for record in _as_list(orders, "orders", "list", "data", "items"):
+            name = _pick(record, "productName", "name", "title", "商品名称")
+            if name:
+                redeemed.append(str(name))
+        if redeemed:
+            result.account_snapshot["redeemed_recent"] = redeemed[:5]
+        result.tools_ok.append("mall-order-list")
+
     def _scan_campaigns(self, result: ScanResult) -> None:
         payload = self.client.call_tool("campaign-calendar", safe=True)
         for record in _as_list(payload, "campaigns", "activities", "list",
@@ -517,7 +571,7 @@ class LedgerEngine:
                 continue
             expires = parse_when(_pick(record, "endTime", "endDate",
                                        "活动结束时间", "结束时间"))
-            result.assets.append(Asset(
+            result.assets.append(self._new_asset(
                 kind="campaign",
                 source_tool="campaign-calendar",
                 title=str(_pick(record, "campaignName", "activityName",
@@ -633,6 +687,12 @@ class LedgerEngine:
     def scan(self, address: Optional[str] = None) -> ScanResult:
         """Run the full sweep, tolerating any tool that refuses to answer."""
         result = ScanResult()
+        self._clock_offset = 0.0
+        try:
+            self._calibrate_clock(result)
+        except Exception as exc:  # noqa: BLE001
+            result.tools_failed["_calibrate_clock"] = "%s: %s" % (
+                type(exc).__name__, exc)
         scanners: List[tuple] = [
             ("_scan_coupons", lambda: self._scan_coupons(result)),
             ("_scan_points", lambda: self._scan_points(result)),
@@ -723,6 +783,21 @@ class LedgerEngine:
                            "门店券离开门店即失效"
                            % (len(result.stores), result.stores[0]["name"])),
                 "tool": "query-nearby-stores",
+            })
+
+        redeemed = result.account_snapshot.get("redeemed_recent")
+        if redeemed:
+            plan.append({
+                "step": len(plan) + 1,
+                "asset": "已兑记录",
+                "kind": "历史复盘",
+                "icon": "🗂️",
+                "value": 0.0,
+                "urgency": "策略",
+                "days_left": None,
+                "action": "最近已兑换：%s —— 兑换建议会避开这些"
+                          % "、".join(redeemed[:3]),
+                "tool": "mall-order-list",
             })
 
         for index, item in enumerate(plan):
