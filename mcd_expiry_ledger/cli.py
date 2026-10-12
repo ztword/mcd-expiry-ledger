@@ -30,10 +30,10 @@ def build_engine(token: str, endpoint: str, demo: bool) -> LedgerEngine:
 
 
 def run(token: str = "", endpoint: str = DEFAULT_ENDPOINT, demo: bool = False,
-        top: int = 8) -> Dict[str, Any]:
+        top: int = 8, address: str = "") -> Dict[str, Any]:
     """Execute a full ledger sweep and return the structured result."""
     engine = build_engine(token, endpoint, demo)
-    result = engine.scan()
+    result = engine.scan(address=address or None)
     plan = engine.build_plan(result, top=top)
     return {"result": result, "plan": plan}
 
@@ -52,14 +52,19 @@ def _print_console(result: Any, plan: List[Dict[str, Any]], quiet: bool = False)
     print(line)
     print("  麦麦到期清单 · mcd-expiry-ledger")
     print(line)
-    if isinstance(getattr(result, "tools_ok", None), list) and result.tools_ok:
-        if "sandbox" in " ".join(result.tools_ok) or isinstance(
-                getattr(result, "account_snapshot", {}), dict):
-            pass
     print("  待清算总额    ¥%.2f" % result.total_value)
     print("  7天内将蒸发   ¥%.2f" % result.at_risk_value)
     print("  资产总数      %d 项（其中 %d 项已过期）"
           % (len(result.assets), result.dead_count))
+    snap = result.account_snapshot
+    if snap.get("orders_top_slot"):
+        print("  点餐时段画像  %s 占 %s%%（近 %s 单）"
+              % (snap["orders_top_slot"], snap.get("orders_top_slot_share"),
+                 snap.get("orders_count")))
+    if result.stores:
+        print("  附近门店      %d 家（最近：%s %s）"
+              % (len(result.stores), result.stores[0]["name"],
+                 result.stores[0].get("distance", "")))
     print(line)
     header = "  %-3s %-34s %10s  %s" % ("#", "资产", "估值", "紧迫度")
     print(header)
@@ -89,6 +94,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--json", dest="as_json", default="",
                         help="同时输出 JSON 到指定路径")
     parser.add_argument("--top", type=int, default=8, help="清算计划条数")
+    parser.add_argument("--address", default="",
+                        help="附近门店匹配用的地址/关键词（如「北京朝阳区建国路」），"
+                             "提供后额外调用 query-nearby-stores")
+    parser.add_argument("--markdown", default="",
+                        help="额外输出一份可粘贴的 Markdown 报告（GitHub Issue / 博客用）")
     parser.add_argument("--quiet", action="store_true", help="只写文件不打印")
     args = parser.parse_args(argv)
 
@@ -118,7 +128,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("! scan 需要 Token，本次自动回落到 demo 沙箱")
             print("  申请地址：https://open.mcd.cn/mcp\n")
 
-        bundle = run(args.token, args.endpoint, demo=demo_mode, top=args.top)
+        bundle = run(args.token, args.endpoint, demo=demo_mode, top=args.top,
+                     address=args.address)
         result, plan = bundle["result"], bundle["plan"]
 
         if demo_mode:
@@ -128,6 +139,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         path = _write_report(result, plan, args.out)
         if not args.quiet:
             print("\n  HTML 报告 → %s" % path)
+        if args.markdown:
+            from .report import render_markdown
+            with open(args.markdown, "w", encoding="utf-8") as handle:
+                handle.write(render_markdown(result, plan))
+            if not args.quiet:
+                print("  Markdown  → %s" % args.markdown)
         if args.as_json:
             with open(args.as_json, "w", encoding="utf-8") as handle:
                 json.dump(result.to_dict(), handle, ensure_ascii=False, indent=2)
