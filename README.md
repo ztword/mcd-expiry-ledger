@@ -49,6 +49,10 @@ cd mcd-expiry-ledger
 python -m mcd_expiry_ledger demo
 ```
 
+<div align="center">
+<img src="docs/demo.gif" alt="终端演示" width="760">
+</div>
+
 输出：
 
 ```
